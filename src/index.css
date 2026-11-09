@@ -1,0 +1,111 @@
+@import "tailwindcss";
+
+:root {
+  --brand-accent-light: #0284c7;
+  --brand-accent-dark: #38bdf8;
+  --accent-color: var(--brand-accent-light);
+
+  --scrollbar-track-light: #f1f5f9;
+  --scrollbar-track-dark: #0f172a;
+  --scrollbar-thumb-light: #94a3b8;
+  --scrollbar-thumb-dark: #475569;
+  --scrollbar-track: var(--scrollbar-track-light);
+  --scrollbar-thumb: var(--scrollbar-thumb-light);
+
+  @media (prefers-color-scheme: dark) {
+    --accent-color: var(--brand-accent-dark);
+    --scrollbar-track: var(--scrollbar-track-dark);
+    --scrollbar-thumb: var(--scrollbar-thumb-dark);
+  }
+
+  @supports (color: light-dark(white, black)) {
+    --accent-color: light-dark(var(--brand-accent-light), var(--brand-accent-dark));
+    --scrollbar-track: light-dark(var(--scrollbar-track-light), var(--scrollbar-track-dark));
+    --scrollbar-thumb: light-dark(var(--scrollbar-thumb-light), var(--scrollbar-thumb-dark));
+  }
+
+  color-scheme: light dark;
+  accent-color: var(--accent-color);
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  line-height: 1.5;
+  text-align: start;
+  overflow-wrap: break-word;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+  max-width: 80ch;
+}
+
+pre,
+code {
+  color-scheme: dark;
+  accent-color: var(--accent-color);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.hero-headline {
+  font-size: clamp(2rem, 1.35rem + 3vw, 3.5rem);
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+}
+
+.brand-gradient-text {
+  background: linear-gradient(135deg, #06b6d4 0%, #38bdf8 35%, #6366f1 75%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.brand-gradient-bg {
+  background: linear-gradient(135deg, #06b6d4 0%, #6366f1 55%, #8b5cf6 100%);
+}
+
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
+}
+
+.eyebrow-dot {
+  animation: pulse-dot 2s infinite ease-in-out;
+}
+

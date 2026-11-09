@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-ssr
+src/generated
+*.local
+.DS_Store
+.env
+.env.*
+!.env.example
+
