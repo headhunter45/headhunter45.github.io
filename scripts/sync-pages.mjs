@@ -157,8 +157,11 @@ async function main() {
             ghRepo.description ||
             `Published GitHub Pages site and repository for ${ghRepo.name}.`,
           language: ghRepo.language || undefined,
-          category: "Published Pages",
-          tags: [ghRepo.language, "GitHub Pages"].filter(Boolean),
+          tags: [
+            "app",
+            ...(ghRepo.language ? [ghRepo.language.toLowerCase()] : []),
+            ...(ghRepo.topics || []),
+          ],
           updatedAt: ghRepo.updated_at,
           stars: ghRepo.stargazers_count || 0,
           hasPages: true,

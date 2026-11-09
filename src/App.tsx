@@ -3,10 +3,15 @@ import resolvedConfigJson from "./generated/resolvedProjects.json";
 import type { ProjectConfig, SiteConfig } from "./types";
 import {
   extractRepoName,
-  fetchAndMergeLiveProjects,
+  filterProjectsByQuery,
+  formatTagQueryToken,
   getAllRouteAliases,
   getProjectKind,
+  getProjectTags,
+  isAppProject,
+  isExtensionProject,
   resolveRedirectFromLocation,
+  sortProjectsByPopularity,
 } from "./utils/projects";
 
 const initialConfig = resolvedConfigJson as SiteConfig;
@@ -32,12 +37,11 @@ function getLanguageBadgeClass(language?: string): string {
 
 export function App() {
   const { profile } = initialConfig;
-  const [projects, setProjects] = useState<ProjectConfig[]>(
-    () => initialConfig.projects || []
+  const projects = useMemo(
+    () => sortProjectsByPopularity(initialConfig.projects || []),
+    []
   );
-  const [liveSynced, setLiveSynced] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
   const [isFlyoutOpen, setIsFlyoutOpen] = useState<boolean>(false);
   const [redirectingTo, setRedirectingTo] = useState<{
@@ -82,66 +86,47 @@ export function App() {
     }
   }, [projects]);
 
-  // Dynamically check GitHub API for newly published Pages repos & metadata updates
-  useEffect(() => {
-    let active = true;
-    fetchAndMergeLiveProjects(
-      initialConfig.projects || [],
-      profile.username,
-      profile.siteUrl
-    ).then(({ projects: updated, liveSynced: synced }) => {
-      if (active && synced) {
-        setProjects(updated);
-        setLiveSynced(true);
-      }
-    });
-    return () => {
-      active = false;
-    };
-  }, [profile.username, profile.siteUrl]);
-
-  const categories = useMemo(() => {
-    const set = new Set<string>(["All"]);
-    for (const p of projects) {
-      if (p.category) set.add(p.category);
-    }
-    return Array.from(set);
-  }, [projects]);
-
-  const filteredProjects = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return projects.filter((p) => {
-      if (selectedCategory !== "All" && p.category !== selectedCategory) {
-        return false;
-      }
-      if (!q) return true;
-      const aliases = getAllRouteAliases(p);
-      return (
-        p.label.toLowerCase().includes(q) ||
-        (p.description && p.description.toLowerCase().includes(q)) ||
-        (p.language && p.language.toLowerCase().includes(q)) ||
-        (p.category && p.category.toLowerCase().includes(q)) ||
-        (p.tags && p.tags.some((t) => t.toLowerCase().includes(q))) ||
-        aliases.some((a) => a.toLowerCase().includes(q))
-      );
-    });
-  }, [projects, searchQuery, selectedCategory]);
-
-  const publishedPagesProjects = useMemo(
-    () => filteredProjects.filter((p) => Boolean(p.pagesUrl)),
-    [filteredProjects]
-  );
-
-  const repoOnlyProjects = useMemo(
-    () => filteredProjects.filter((p) => !p.pagesUrl),
-    [filteredProjects]
-  );
-
-  const totalAliasesCount = useMemo(
-    () =>
-      projects.reduce((acc, p) => acc + getAllRouteAliases(p).length + 1, 0),
+  const appProjects = useMemo(
+    () => projects.filter((p) => isAppProject(p)),
     [projects]
   );
+
+  const extensionProjects = useMemo(
+    () => projects.filter((p) => isExtensionProject(p)),
+    [projects]
+  );
+
+  const filteredAllProjects = useMemo(
+    () => filterProjectsByQuery(projects, searchQuery),
+    [projects, searchQuery]
+  );
+
+  const availableTags = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of projects) {
+      for (const t of getProjectTags(p)) {
+        const lower = t.toLowerCase();
+        counts.set(lower, (counts.get(lower) || 0) + 1);
+      }
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([tag]) => tag);
+  }, [projects]);
+
+  const handleTagClick = (tag: string, scrollToAll = false) => {
+    const token = formatTagQueryToken(tag);
+    setSearchQuery((prev) => {
+      const trimmed = prev.trim();
+      if (trimmed.toLowerCase() === token.toLowerCase()) {
+        return "";
+      }
+      return token;
+    });
+    if (scrollToAll) {
+      document.getElementById("all")?.scrollIntoView({ behavior: "smooth" });
+    }
+  };
 
   const handleCopyShortUrl = (slug: string) => {
     const base = profile.siteUrl.replace(/\/$/, "");
@@ -151,6 +136,125 @@ export function App() {
     setTimeout(() => {
       setCopiedSlug((prev) => (prev === slug ? null : prev));
     }, 1800);
+  };
+
+  const renderProjectCard = (project: ProjectConfig, scrollToAllOnTagClick = true) => {
+    const kind = getProjectKind(project);
+    const primaryHref = project.pagesUrl || project.repoUrl || "#";
+    const isExternalOnly = kind === "external";
+    const hasPages = Boolean(project.pagesUrl);
+    const tags = getProjectTags(project);
+
+    return (
+      <article
+        key={project.label}
+        className="group rounded-2xl border border-slate-200 dark:border-slate-800/90 bg-white dark:bg-slate-900/75 hover:border-sky-500/50 dark:hover:border-sky-500/50 p-6 shadow-sm hover:shadow-xl transition flex flex-col justify-between"
+      >
+        <div>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2">
+              {hasPages ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wide bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  {isExternalOnly ? "Web Site" : "Published Page"}
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                  Repository
+                </span>
+              )}
+
+              {project.language && (
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${getLanguageBadgeClass(
+                    project.language
+                  )}`}
+                >
+                  {project.language}
+                </span>
+              )}
+            </div>
+
+            {typeof project.stars === "number" && project.stars > 0 && (
+              <span
+                className="inline-flex items-center gap-1 text-xs font-mono text-amber-600 dark:text-amber-400"
+                aria-label={`${project.stars} GitHub stars`}
+              >
+                <span aria-hidden="true">★</span>
+                <span>{project.stars}</span>
+              </span>
+            )}
+          </div>
+
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white group-hover:text-sky-600 dark:group-hover:text-sky-400 transition">
+            <a
+              href={primaryHref}
+              target={hasPages ? undefined : "_blank"}
+              rel={hasPages ? undefined : "noopener noreferrer"}
+            >
+              {project.label}
+            </a>
+          </h3>
+
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+            {project.description}
+          </p>
+
+          {tags.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              {tags.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => handleTagClick(tag, scrollToAllOnTagClick)}
+                  className="px-2 py-0.5 rounded-md text-xs font-mono bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 hover:bg-sky-500/15 hover:text-sky-600 dark:hover:text-sky-300 transition cursor-pointer"
+                >
+                  #{tag.toLowerCase()}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-6 pt-4 border-t border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
+          {project.pagesUrl ? (
+            <>
+              <a
+                href={project.pagesUrl}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-sky-600 hover:bg-sky-500 text-white shadow-sm shadow-sky-600/20 transition"
+              >
+                <span>Open App / Site</span>
+                <span aria-hidden="true">→</span>
+              </a>
+
+              {project.repoUrl && (
+                <a
+                  href={project.repoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                >
+                  <span>Source Repo</span>
+                  <span aria-hidden="true">↗</span>
+                </a>
+              )}
+            </>
+          ) : (
+            project.repoUrl && (
+              <a
+                href={project.repoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-900 dark:bg-slate-800 hover:bg-sky-600 dark:hover:bg-sky-600 text-white transition"
+              >
+                <span>View on GitHub</span>
+                <span aria-hidden="true">↗</span>
+              </a>
+            )
+          )}
+        </div>
+      </article>
+    );
   };
 
   const renderRedirectsTable = (captionText: string) => (
@@ -270,644 +374,389 @@ export function App() {
           isFlyoutOpen ? "bottom-[42dvh]" : "bottom-0"
         }`}
       >
-        {/* Sticky Top Header (NextcloudUploadTool + opentasks hybrid) */}
-      <header className="sticky top-0 z-40 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/85 dark:bg-[#090d16]/85 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-          <a
-            href="#top"
-            className="flex items-center gap-3 font-bold text-base tracking-tight text-slate-900 dark:text-white"
-          >
-            <span
-              aria-hidden="true"
-              className="w-9 h-9 rounded-lg brand-gradient-bg text-white font-extrabold text-sm flex items-center justify-center shadow-md shadow-indigo-500/25"
+        {/* Sticky Top Header */}
+        <header className="sticky top-0 z-40 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/85 dark:bg-[#090d16]/85 backdrop-blur-md">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+            <a
+              href="#top"
+              className="flex items-center gap-3 font-bold text-base tracking-tight text-slate-900 dark:text-white"
             >
-              H45
-            </span>
-            <span>{profile.username}</span>
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/25">
-              <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
-              {liveSynced ? "Live GitHub Sync" : "GitHub Pages Hub"}
-            </span>
-          </a>
+              <span
+                aria-hidden="true"
+                className="w-9 h-9 rounded-lg brand-gradient-bg text-white font-extrabold text-sm flex items-center justify-center shadow-md shadow-indigo-500/25"
+              >
+                H45
+              </span>
+              <span>{profile.username}</span>
+            </a>
 
-          <nav
-            aria-label="Primary Navigation"
-            className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600 dark:text-slate-300"
-          >
-            <a
-              href="#published-pages"
-              className="hover:text-sky-600 dark:hover:text-sky-400 transition"
+            <nav
+              aria-label="Primary Navigation"
+              className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600 dark:text-slate-300"
             >
-              Published Pages ({ projects.filter((p) => p.pagesUrl).length })
-            </a>
-            <a
-              href="#repositories"
-              className="hover:text-sky-600 dark:hover:text-sky-400 transition"
-            >
-              Repositories ({ projects.filter((p) => !p.pagesUrl).length })
-            </a>
-            <a
-              href="#redirects"
-              className="hover:text-sky-600 dark:hover:text-sky-400 transition"
-            >
-              Redirects &amp; Aliases
-            </a>
-            <a
-              href="#config-guide"
-              className="hover:text-sky-600 dark:hover:text-sky-400 transition"
-            >
-              Config Schema
-            </a>
-          </nav>
-
-          <div className="flex items-center gap-2.5">
-            {profile.blogUrl && (
               <a
-                href={profile.blogUrl}
+                href="#apps"
+                className="hover:text-sky-600 dark:hover:text-sky-400 transition"
+              >
+                Apps ({appProjects.length})
+              </a>
+              <a
+                href="#extensions"
+                className="hover:text-sky-600 dark:hover:text-sky-400 transition"
+              >
+                Extensions ({extensionProjects.length})
+              </a>
+              <a
+                href="#all"
+                className="hover:text-sky-600 dark:hover:text-sky-400 transition"
+              >
+                All ({projects.length})
+              </a>
+            </nav>
+
+            <div className="flex items-center gap-2.5">
+              {profile.blogUrl && (
+                <a
+                  href={profile.blogUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium border border-slate-300 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-900 transition"
+                >
+                  sfcoder.me
+                </a>
+              )}
+              <a
+                href={profile.githubUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium border border-slate-300 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-900 transition"
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold bg-sky-600 hover:bg-sky-500 text-white shadow-sm shadow-sky-600/20 transition"
               >
-                sfcoder.me
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  className="w-4 h-4 fill-current"
+                >
+                  <path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z" />
+                </svg>
+                <span>@{profile.username}</span>
               </a>
-            )}
-            <a
-              href={profile.githubUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold bg-sky-600 hover:bg-sky-500 text-white shadow-sm shadow-sky-600/20 transition"
-            >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                className="w-4 h-4 fill-current"
-              >
-                <path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z" />
-              </svg>
-              <span>@{profile.username}</span>
-            </a>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main id="top" className="flex-1">
-        {/* Hero / Profile Section */}
-        <section className="relative overflow-hidden py-14 sm:py-20 border-b border-slate-200 dark:border-slate-800/80 bg-gradient-to-b from-sky-50/70 via-white to-slate-50 dark:from-indigo-950/30 dark:via-[#090d16] dark:to-[#090d16]">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-              {/* Left Column: Profile Intro */}
-              <div className="lg:col-span-8">
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/25 mb-6">
-                  <span className="w-2 h-2 rounded-full bg-cyan-400 eyebrow-dot" />
-                  <span>
-                    {profile.name} (@{profile.username})
-                  </span>
-                  {profile.company && (
-                    <>
-                      <span aria-hidden="true">•</span>
-                      <span>{profile.company}</span>
-                    </>
-                  )}
-                  {profile.location && (
-                    <>
-                      <span aria-hidden="true">•</span>
-                      <span>{profile.location}</span>
-                    </>
-                  )}
-                </div>
-
-                <h1 className="hero-headline font-extrabold text-slate-900 dark:text-white">
-                  Open-Source Tools,{" "}
-                  <span className="brand-gradient-text">
-                    Published Web Portals
-                  </span>{" "}
-                  &amp; Project Directory
-                </h1>
-
-                <p className="mt-5 text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
-                  {profile.bio}
-                </p>
-
-                <div className="mt-7 flex flex-wrap items-center gap-3">
-                  <a
-                    href="#published-pages"
-                    className="px-5 py-2.5 rounded-xl font-semibold text-sm bg-sky-600 hover:bg-sky-500 text-white shadow-md shadow-sky-600/20 transition"
-                  >
-                    Explore Published Sites
-                  </a>
-                  <a
-                    href="#repositories"
-                    className="px-5 py-2.5 rounded-xl font-semibold text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                  >
-                    Browse Repositories
-                  </a>
-                  <a
-                    href="#redirects"
-                    className="px-4 py-2.5 rounded-xl font-medium text-sm text-slate-600 dark:text-slate-300 hover:text-sky-600 dark:hover:text-sky-400 transition"
-                  >
-                    View Short Redirects →
-                  </a>
-                </div>
-              </div>
-
-              {/* Right Column: Profile Card & Quick Stats */}
-              <div className="lg:col-span-4">
-                <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/75 p-6 shadow-xl">
-                  <div className="flex items-center gap-4">
-                    <img
-                      src={profile.avatarUrl}
-                      alt={`${profile.name} (@${profile.username})`}
-                      width={64}
-                      height={64}
-                      className="w-16 h-16 rounded-2xl border-2 border-sky-500/40 object-cover aspect-square shadow-md"
-                    />
-                    <div>
-                      <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                        {profile.name}
-                      </h2>
-                      <p className="text-sm font-mono text-sky-600 dark:text-sky-400">
-                        @{profile.username}
-                      </p>
-                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                        {profile.company && <span>{profile.company}</span>}
-                        {profile.location && <span>• {profile.location}</span>}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 grid grid-cols-3 gap-2.5 pt-5 border-t border-slate-200 dark:border-slate-800 text-center">
-                    <div className="rounded-xl bg-slate-50 dark:bg-slate-950/70 p-2.5 border border-slate-200/60 dark:border-slate-800/80">
-                      <div className="text-xl font-extrabold text-sky-600 dark:text-sky-400 font-mono">
-                        {projects.filter((p) => p.pagesUrl).length}
-                      </div>
-                      <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                        Pages Sites
-                      </div>
-                    </div>
-                    <div className="rounded-xl bg-slate-50 dark:bg-slate-950/70 p-2.5 border border-slate-200/60 dark:border-slate-800/80">
-                      <div className="text-xl font-extrabold text-indigo-600 dark:text-indigo-400 font-mono">
-                        {projects.length}
-                      </div>
-                      <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                        Featured Repos
-                      </div>
-                    </div>
-                    <div className="rounded-xl bg-slate-50 dark:bg-slate-950/70 p-2.5 border border-slate-200/60 dark:border-slate-800/80">
-                      <div className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">
-                        {totalAliasesCount}+
-                      </div>
-                      <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                        Redirect Routes
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                    <span>Case-insensitive route resolver</span>
-                    <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
-                      Active
+        <main id="top" className="flex-1">
+          {/* Hero / Profile Section */}
+          <section className="relative overflow-hidden py-14 sm:py-20 border-b border-slate-200 dark:border-slate-800/80 bg-gradient-to-b from-sky-50/70 via-white to-slate-50 dark:from-indigo-950/30 dark:via-[#090d16] dark:to-[#090d16]">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+                {/* Left Column: Profile Intro */}
+                <div className="lg:col-span-8">
+                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/25 mb-6">
+                    <span className="w-2 h-2 rounded-full bg-cyan-400 eyebrow-dot" />
+                    <span>
+                      {profile.name} (@{profile.username})
                     </span>
+                    {profile.company && (
+                      <>
+                        <span aria-hidden="true">•</span>
+                        <span>{profile.company}</span>
+                      </>
+                    )}
+                    {profile.location && (
+                      <>
+                        <span aria-hidden="true">•</span>
+                        <span>{profile.location}</span>
+                      </>
+                    )}
+                  </div>
+
+                  <h1 className="hero-headline font-extrabold text-slate-900 dark:text-white">
+                    Open-Source{" "}
+                    <span className="brand-gradient-text">
+                      Apps, Extensions
+                    </span>{" "}
+                    &amp; Developer Tools
+                  </h1>
+
+                  <p className="mt-5 text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
+                    {profile.bio}
+                  </p>
+
+                  <div className="mt-7 flex flex-wrap items-center gap-3">
+                    <a
+                      href="#apps"
+                      className="px-5 py-2.5 rounded-xl font-semibold text-sm bg-sky-600 hover:bg-sky-500 text-white shadow-md shadow-sky-600/20 transition"
+                    >
+                      Explore Apps
+                    </a>
+                    <a
+                      href="#extensions"
+                      className="px-5 py-2.5 rounded-xl font-semibold text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                    >
+                      Browse Extensions
+                    </a>
+                    <a
+                      href="#all"
+                      className="px-4 py-2.5 rounded-xl font-medium text-sm text-slate-600 dark:text-slate-300 hover:text-sky-600 dark:hover:text-sky-400 transition"
+                    >
+                      Search All Projects →
+                    </a>
+                  </div>
+                </div>
+
+                {/* Right Column: Profile Card & Quick Stats */}
+                <div className="lg:col-span-4">
+                  <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/75 p-6 shadow-xl">
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={profile.avatarUrl}
+                        alt={`${profile.name} (@${profile.username})`}
+                        width={64}
+                        height={64}
+                        className="w-16 h-16 rounded-2xl border-2 border-sky-500/40 object-cover aspect-square shadow-md"
+                      />
+                      <div>
+                        <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                          {profile.name}
+                        </h2>
+                        <p className="text-sm font-mono text-sky-600 dark:text-sky-400">
+                          @{profile.username}
+                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                          {profile.company && <span>{profile.company}</span>}
+                          {profile.location && <span>• {profile.location}</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 grid grid-cols-3 gap-2.5 pt-5 border-t border-slate-200 dark:border-slate-800 text-center">
+                      <div className="rounded-xl bg-slate-50 dark:bg-slate-950/70 p-2.5 border border-slate-200/60 dark:border-slate-800/80">
+                        <div className="text-xl font-extrabold text-sky-600 dark:text-sky-400 font-mono">
+                          {appProjects.length}
+                        </div>
+                        <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                          Apps
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-slate-50 dark:bg-slate-950/70 p-2.5 border border-slate-200/60 dark:border-slate-800/80">
+                        <div className="text-xl font-extrabold text-indigo-600 dark:text-indigo-400 font-mono">
+                          {extensionProjects.length}
+                        </div>
+                        <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                          Extensions
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-slate-50 dark:bg-slate-950/70 p-2.5 border border-slate-200/60 dark:border-slate-800/80">
+                        <div className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">
+                          {projects.length}
+                        </div>
+                        <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                          All Projects
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
+          </section>
 
-            {/* Search & Category Filter Bar */}
-            <div className="mt-10 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-4 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-              <div className="relative flex-1">
-                <input
-                  type="search"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Filter by project name, alias (/nut, /ot, /obb), language, or tag…"
-                  aria-label="Filter projects and aliases"
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-200 cursor-pointer"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-
-              <div
-                className="flex flex-wrap items-center gap-1.5"
-                role="group"
-                aria-label="Filter by category"
-              >
-                {categories.map((cat) => {
-                  const active = selectedCategory === cat;
-                  return (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setSelectedCategory(cat)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                        active
-                          ? "bg-sky-600 text-white shadow-sm"
-                          : "bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800"
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Published GitHub Pages Section */}
-        <section
-          id="published-pages"
-          className="py-14 sm:py-16 border-b border-slate-200 dark:border-slate-800/80"
-        >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
-              <div>
+          {/* Apps Section */}
+          <section
+            id="apps"
+            className="py-14 sm:py-16 border-b border-slate-200 dark:border-slate-800/80"
+          >
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="mb-8">
                 <span className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-sky-600 dark:text-sky-400 font-semibold">
                   <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                  Live Documentation &amp; Web Apps
+                  Applications &amp; Published Portals
                 </span>
                 <h2 className="mt-1 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-                  Published GitHub Pages
+                  Apps
                 </h2>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  Repositories with live web portals or documentation hosted under{" "}
-                  <code className="font-mono text-xs px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800 text-sky-600 dark:text-sky-300">
-                    headhunter45.github.io
-                  </code>
-                  . New Pages repos are discovered automatically.
+                  Interactive web applications, desktop utilities, CLI tools, and projects with published GitHub Pages sites.
                 </p>
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {appProjects.map((project) => renderProjectCard(project, true))}
+              </div>
             </div>
+          </section>
 
-            {publishedPagesProjects.length === 0 ? (
-              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-8 text-center text-sm text-slate-500">
-                No published Pages projects match your current filter.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {publishedPagesProjects.map((project) => {
-                  const aliases = getAllRouteAliases(project);
-                  const kind = getProjectKind(project);
-                  return (
-                    <article
-                      key={project.label}
-                      className="group rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/75 hover:border-sky-500/50 dark:hover:border-sky-500/50 p-6 shadow-sm hover:shadow-xl transition flex flex-col justify-between"
-                    >
-                      <div>
-                        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                          <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wide bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                              {kind === "external" ? "External Site" : "Published Page"}
-                            </span>
-                            {project.language && (
-                              <span
-                                className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${getLanguageBadgeClass(
-                                  project.language
-                                )}`}
-                              >
-                                {project.language}
-                              </span>
-                            )}
-                          </div>
-
-                          {project.category && (
-                            <span className="text-xs font-mono text-slate-400 dark:text-slate-500">
-                              {project.category}
-                            </span>
-                          )}
-                        </div>
-
-                        <h3 className="text-xl font-bold text-slate-900 dark:text-white group-hover:text-sky-600 dark:group-hover:text-sky-400 transition">
-                          <a href={project.pagesUrl}>{project.label}</a>
-                        </h3>
-
-                        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                          {project.description}
-                        </p>
-
-                        {project.tags && project.tags.length > 0 && (
-                          <div className="mt-4 flex flex-wrap gap-1.5">
-                            {project.tags.map((tag) => (
-                              <span
-                                key={tag}
-                                className="px-2 py-0.5 rounded-md text-xs font-mono bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="mt-6 pt-4 border-t border-slate-200/80 dark:border-slate-800/80">
-                        {aliases.length > 0 && (
-                          <div className="mb-4 flex flex-wrap items-center gap-1.5 text-xs">
-                            <span className="text-slate-400 dark:text-slate-500 mr-1">
-                              Short redirects:
-                            </span>
-                            {aliases.map((alias) => (
-                              <button
-                                key={alias}
-                                type="button"
-                                onClick={() => handleCopyShortUrl(alias)}
-                                title={`Copy https://${profile.username}.github.io/${alias}`}
-                                className="px-2 py-0.5 rounded font-mono text-[11px] bg-slate-100 dark:bg-slate-950 text-sky-700 dark:text-sky-300 border border-slate-200 dark:border-slate-800 hover:border-sky-500/50 transition cursor-pointer"
-                              >
-                                /{alias}
-                                {copiedSlug === alias && (
-                                  <span className="ml-1 text-emerald-500">✓</span>
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <a
-                            href={project.pagesUrl}
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-sky-600 hover:bg-sky-500 text-white shadow-sm shadow-sky-600/20 transition"
-                          >
-                            <span>Open Published Page</span>
-                            <span aria-hidden="true">→</span>
-                          </a>
-
-                          {project.repoUrl && (
-                            <a
-                              href={project.repoUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                            >
-                              <span>Source Repo</span>
-                              <span aria-hidden="true">↗</span>
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Configured Repositories (Pages Not Published Yet) */}
-        <section
-          id="repositories"
-          className="py-14 sm:py-16 border-b border-slate-200 dark:border-slate-800/80 bg-slate-100/50 dark:bg-slate-950/40"
-        >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
-              <div>
+          {/* Extensions Section */}
+          <section
+            id="extensions"
+            className="py-14 sm:py-16 border-b border-slate-200 dark:border-slate-800/80 bg-slate-100/50 dark:bg-slate-950/40"
+          >
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="mb-8">
                 <span className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-indigo-600 dark:text-indigo-400 font-semibold">
                   <span className="w-2 h-2 rounded-full bg-indigo-400" />
-                  Open-Source Codebases &amp; Libraries
+                  Plugins &amp; Add-ons
                 </span>
                 <h2 className="mt-1 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-                  Featured Repositories
+                  Extensions
                 </h2>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  Projects configured in{" "}
-                  <code className="font-mono text-xs px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800 text-indigo-600 dark:text-indigo-300">
-                    src/config/projects.json
-                  </code>{" "}
-                  without a published Pages site yet. Once GitHub Pages is enabled on any of these repos, it automatically promotes to Published Pages.
+                  Server plugins, companion modules, and platform extensions.
                 </p>
               </div>
-            </div>
 
-            {repoOnlyProjects.length === 0 ? (
-              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-8 text-center text-sm text-slate-500">
-                No repositories match your current filter.
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {extensionProjects.map((project) =>
+                  renderProjectCard(project, true)
+                )}
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {repoOnlyProjects.map((project) => {
-                  const aliases = getAllRouteAliases(project);
-                  return (
-                    <article
-                      key={project.label}
-                      className="rounded-2xl border border-slate-200 dark:border-slate-800/90 bg-white dark:bg-slate-900/65 hover:border-indigo-500/50 p-5 shadow-sm hover:shadow-md transition flex flex-col justify-between"
-                    >
-                      <div>
-                        <div className="flex items-center justify-between gap-2 mb-3">
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                            {project.category || "Repository"}
-                          </span>
-                          {project.language && (
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${getLanguageBadgeClass(
-                                project.language
-                              )}`}
-                            >
-                              {project.language}
-                            </span>
-                          )}
-                        </div>
-
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                          <a
-                            href={project.repoUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hover:text-indigo-600 dark:hover:text-indigo-400 transition"
-                          >
-                            {project.label}
-                          </a>
-                        </h3>
-
-                        <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                          {project.description}
-                        </p>
-
-                        {project.tags && project.tags.length > 0 && (
-                          <div className="mt-3.5 flex flex-wrap gap-1.5">
-                            {project.tags.map((tag) => (
-                              <span
-                                key={tag}
-                                className="px-2 py-0.5 rounded text-[11px] font-mono bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="mt-5 pt-3.5 border-t border-slate-200/70 dark:border-slate-800/70 flex items-center justify-between gap-2">
-                        <div className="flex flex-wrap items-center gap-1 overflow-hidden">
-                          {aliases.slice(0, 2).map((alias) => (
-                            <button
-                              key={alias}
-                              type="button"
-                              onClick={() => handleCopyShortUrl(alias)}
-                              title={`Copy redirect https://${profile.username}.github.io/${alias}`}
-                              className="px-2 py-0.5 rounded font-mono text-[11px] bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-indigo-500/50 transition cursor-pointer"
-                            >
-                              /{alias}
-                              {copiedSlug === alias && (
-                                <span className="ml-1 text-emerald-500">✓</span>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-
-                        {project.repoUrl && (
-                          <a
-                            href={project.repoUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline shrink-0"
-                          >
-                            <span>View on GitHub</span>
-                            <span aria-hidden="true">↗</span>
-                          </a>
-                        )}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Case-Insensitive & Alias Redirects Table */}
-        <section
-          id="redirects"
-          className="py-14 sm:py-16 border-b border-slate-200 dark:border-slate-800/80"
-        >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="mb-8">
-              <span className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-cyan-600 dark:text-cyan-400 font-semibold">
-                Smart Path Resolution
-              </span>
-              <h2 className="mt-1 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-                Case-Insensitive &amp; Short Alias Redirects
-              </h2>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                GitHub Pages paths are case-sensitive by default. This site generates static redirect endpoints for all configured aliases and lowercase slugs, plus a smart{" "}
-                <code className="font-mono text-xs px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800">
-                  404.html
-                </code>{" "}
-                router that resolves any casing or hyphen/underscore variation while preserving subpaths and query parameters.
-              </p>
             </div>
+          </section>
 
-            {renderRedirectsTable("Case-Insensitive and Short Alias Redirects")}
-          </div>
-        </section>
-
-        {/* Configuration Schema Guide */}
-        <section id="config-guide" className="py-14 sm:py-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-6 sm:p-8 shadow-sm">
-              <div className="max-w-3xl">
-                <span className="text-xs font-mono uppercase tracking-wider text-sky-600 dark:text-sky-400 font-semibold">
-                  src/config/projects.json
+          {/* All Projects Section with Search & Tag Filter */}
+          <section id="all" className="py-14 sm:py-16">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="mb-6">
+                <span className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-cyan-600 dark:text-cyan-400 font-semibold">
+                  Complete Catalog
                 </span>
-                <h2 className="mt-1 text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                  Adding Projects, Aliases &amp; External Links
+                <h2 className="mt-1 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                  All Projects
                 </h2>
-                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                  Edit{" "}
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  Search case-insensitively by repository name or tags. Use{" "}
                   <code className="font-mono text-xs px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800">
-                    src/config/projects.json
+                    tag:apps
                   </code>{" "}
-                  to add repositories, custom short aliases, or external sites. Omit{" "}
+                  or{" "}
                   <code className="font-mono text-xs px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800">
-                    pagesUrl
+                    &quot;tag:unit testing&quot;
                   </code>{" "}
-                  for repositories without published Pages—when Pages is enabled on GitHub, the deploy workflow and live sync automatically populate{" "}
+                  to force a tag filter.
+                </p>
+              </div>
+
+              {/* Search & Tag Filter Panel */}
+              <div className="mb-8 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-4 sm:p-5 shadow-sm">
+                <div className="relative">
+                  <label htmlFor="all-projects-search" className="visually-hidden">
+                    Search projects by repository name or tags
+                  </label>
+                  <input
+                    id="all-projects-search"
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder='Search by repo name or tag (e.g. tag:apps, "tag:unit testing", rust)…'
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+
+                <div className="mt-3.5 flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs font-medium text-slate-400 dark:text-slate-500 mr-1">
+                    Tags:
+                  </span>
+                  {availableTags.map((tag) => {
+                    const token = formatTagQueryToken(tag);
+                    const isSelected =
+                      searchQuery.trim().toLowerCase() === token.toLowerCase();
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => handleTagClick(tag, false)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-mono transition cursor-pointer ${
+                          isSelected
+                            ? "bg-sky-600 text-white shadow-sm"
+                            : "bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800"
+                        }`}
+                      >
+                        #{tag}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {filteredAllProjects.length === 0 ? (
+                <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-8 text-center text-sm text-slate-500">
+                  No projects match{" "}
                   <code className="font-mono text-xs px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800">
-                    pagesUrl
+                    {searchQuery}
                   </code>
                   .
-                </p>
-              </div>
-
-              <pre className="mt-5 rounded-xl bg-slate-950 text-slate-100 p-4 sm:p-5 text-xs sm:text-sm overflow-x-auto border border-slate-800 leading-relaxed">
-                <code>{`{
-  "projects": [
-    {
-      "label": "NextcloudUploadTool",
-      "pagesUrl": "https://headhunter45.github.io/NextcloudUploadTool/",
-      "repoUrl": "https://github.com/headhunter45/NextcloudUploadTool",
-      "aliases": ["nut", "nextcloud-upload-tool", "upload"]
-    },
-    {
-      "label": "NodeEditor",
-      "repoUrl": "https://github.com/headhunter45/NodeEditor",
-      "aliases": ["node-editor", "nodes"]
-    }
-  ]
-}`}</code>
-              </pre>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredAllProjects.map((project) =>
+                    renderProjectCard(project, false)
+                  )}
+                </div>
+              )}
             </div>
-          </div>
-        </section>
-      </main>
+          </section>
+        </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#090d16] py-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500 dark:text-slate-400">
-          <div className="flex items-center gap-2.5">
-            <span
-              aria-hidden="true"
-              className="w-6 h-6 rounded brand-gradient-bg text-white font-bold text-[11px] flex items-center justify-center"
-            >
-              H45
-            </span>
-            <span>
-              {profile.name} (@{profile.username}) — Published at{" "}
-              <a
-                href={profile.siteUrl}
-                className="text-sky-600 dark:text-sky-400 hover:underline"
+        {/* Footer */}
+        <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#090d16] py-10">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500 dark:text-slate-400">
+            <div className="flex items-center gap-2.5">
+              <span
+                aria-hidden="true"
+                className="w-6 h-6 rounded brand-gradient-bg text-white font-bold text-[11px] flex items-center justify-center"
               >
-                headhunter45.github.io
-              </a>
-            </span>
-          </div>
+                H45
+              </span>
+              <span>
+                {profile.name} (@{profile.username}) — Published at{" "}
+                <a
+                  href={profile.siteUrl}
+                  className="text-sky-600 dark:text-sky-400 hover:underline"
+                >
+                  headhunter45.github.io
+                </a>
+              </span>
+            </div>
 
-          <div className="flex flex-wrap items-center gap-5">
-            <a
-              href={profile.githubUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-sky-500 transition"
-            >
-              GitHub Profile
-            </a>
-            {profile.blogUrl && (
+            <div className="flex flex-wrap items-center gap-5">
               <a
-                href={profile.blogUrl}
+                href={profile.githubUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-sky-500 transition"
               >
-                sfcoder.me
+                GitHub Profile
               </a>
-            )}
-            <a
-              href={`${profile.githubUrl}/${profile.username}.github.io`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-sky-500 transition"
-            >
-              Site Repository
-            </a>
+              {profile.blogUrl && (
+                <a
+                  href={profile.blogUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-sky-500 transition"
+                >
+                  sfcoder.me
+                </a>
+              )}
+              <a
+                href={`${profile.githubUrl}/${profile.username}.github.io`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-sky-500 transition"
+              >
+                Site Repository
+              </a>
+            </div>
           </div>
-        </div>
-      </footer>
+        </footer>
       </div>
 
       {/* Hidden Bottom Flyout Panel toggled with the ` (Backquote) key */}
@@ -953,4 +802,3 @@ export function App() {
 }
 
 export default App;
-
