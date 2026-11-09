@@ -39,10 +39,36 @@ export function App() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
+  const [isFlyoutOpen, setIsFlyoutOpen] = useState<boolean>(false);
   const [redirectingTo, setRedirectingTo] = useState<{
     label: string;
     targetUrl: string;
   } | null>(null);
+
+  // Listen for the ` (Backquote) key below Escape to toggle the bottom flyout panel
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+      const target = e.target as HTMLElement | null;
+      const isEditable =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable);
+
+      if (!isEditable && (e.key === "`" || e.code === "Backquote")) {
+        e.preventDefault();
+        setIsFlyoutOpen((prev) => !prev);
+      } else if (e.key === "Escape" && isFlyoutOpen && !isEditable) {
+        setIsFlyoutOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isFlyoutOpen]);
 
   // Check if current URL path or ?redirect= query matches a project redirect
   useEffect(() => {
@@ -127,6 +153,90 @@ export function App() {
     }, 1800);
   };
 
+  const renderRedirectsTable = (captionText: string) => (
+    <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/75 overflow-hidden shadow-sm">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse text-sm">
+          <caption className="visually-hidden">{captionText}</caption>
+          <thead>
+            <tr className="bg-slate-100/80 dark:bg-slate-950/80 border-b border-slate-200 dark:border-slate-800 text-xs uppercase font-semibold text-slate-500 dark:text-slate-400">
+              <th scope="col" className="py-3.5 px-5">
+                Project
+              </th>
+              <th scope="col" className="py-3.5 px-5">
+                Target Destination
+              </th>
+              <th scope="col" className="py-3.5 px-5">
+                Short Aliases &amp; Case Variants
+              </th>
+              <th scope="col" className="py-3.5 px-5 text-right">
+                Status
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800/70">
+            {projects.map((project) => {
+              const target = project.pagesUrl || project.repoUrl || "#";
+              const aliases = getAllRouteAliases(project);
+              const repoName = extractRepoName(project.repoUrl);
+              return (
+                <tr
+                  key={project.label}
+                  className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition"
+                >
+                  <td className="py-3.5 px-5 font-semibold text-slate-900 dark:text-white">
+                    {project.label}
+                  </td>
+                  <td className="py-3.5 px-5 font-mono text-xs">
+                    <a
+                      href={target}
+                      className="text-sky-600 dark:text-sky-400 hover:underline break-all"
+                    >
+                      {target}
+                    </a>
+                  </td>
+                  <td className="py-3.5 px-5">
+                    <div className="flex flex-wrap gap-1.5">
+                      {aliases.map((alias) => (
+                        <button
+                          key={alias}
+                          type="button"
+                          onClick={() => handleCopyShortUrl(alias)}
+                          className="px-2 py-0.5 rounded font-mono text-xs bg-slate-100 dark:bg-slate-950 text-indigo-600 dark:text-indigo-300 border border-slate-200 dark:border-slate-800 hover:border-sky-500/50 cursor-pointer"
+                        >
+                          /{alias}
+                          {copiedSlug === alias && (
+                            <span className="ml-1 text-emerald-500">✓</span>
+                          )}
+                        </button>
+                      ))}
+                      {repoName && (
+                        <span className="px-2 py-0.5 rounded font-mono text-xs text-slate-400 dark:text-slate-500">
+                          /{repoName.toUpperCase()} (any case)
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="py-3.5 px-5 text-right">
+                    {project.pagesUrl ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                        Pages Site
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                        Repo Fallback
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
   if (redirectingTo) {
     return (
       <div className="min-h-dvh bg-slate-950 text-slate-100 flex items-center justify-center p-6">
@@ -153,8 +263,14 @@ export function App() {
   }
 
   return (
-    <div className="min-h-dvh bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 flex flex-col selection:bg-sky-500/20 selection:text-sky-400">
-      {/* Sticky Top Header (NextcloudUploadTool + opentasks hybrid) */}
+    <div className="relative h-dvh overflow-hidden bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 selection:bg-sky-500/20 selection:text-sky-400">
+      {/* Main Scrollable Viewport Area (nudged up when bottom flyout is open) */}
+      <div
+        className={`absolute inset-x-0 top-0 overflow-y-auto overscroll-contain scroll-smooth flex flex-col transition-[bottom] duration-200 ${
+          isFlyoutOpen ? "bottom-[42dvh]" : "bottom-0"
+        }`}
+      >
+        {/* Sticky Top Header (NextcloudUploadTool + opentasks hybrid) */}
       <header className="sticky top-0 z-40 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/85 dark:bg-[#090d16]/85 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           <a
@@ -687,78 +803,7 @@ export function App() {
               </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/75 overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-sm">
-                  <thead>
-                    <tr className="bg-slate-100/80 dark:bg-slate-950/80 border-b border-slate-200 dark:border-slate-800 text-xs uppercase font-semibold text-slate-500 dark:text-slate-400">
-                      <th className="py-3.5 px-5">Project</th>
-                      <th className="py-3.5 px-5">Target Destination</th>
-                      <th className="py-3.5 px-5">Short Aliases &amp; Case Variants</th>
-                      <th className="py-3.5 px-5 text-right">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800/70">
-                    {projects.map((project) => {
-                      const target = project.pagesUrl || project.repoUrl || "#";
-                      const aliases = getAllRouteAliases(project);
-                      const repoName = extractRepoName(project.repoUrl);
-                      return (
-                        <tr
-                          key={project.label}
-                          className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition"
-                        >
-                          <td className="py-3.5 px-5 font-semibold text-slate-900 dark:text-white">
-                            {project.label}
-                          </td>
-                          <td className="py-3.5 px-5 font-mono text-xs">
-                            <a
-                              href={target}
-                              className="text-sky-600 dark:text-sky-400 hover:underline break-all"
-                            >
-                              {target}
-                            </a>
-                          </td>
-                          <td className="py-3.5 px-5">
-                            <div className="flex flex-wrap gap-1.5">
-                              {aliases.map((alias) => (
-                                <button
-                                  key={alias}
-                                  type="button"
-                                  onClick={() => handleCopyShortUrl(alias)}
-                                  className="px-2 py-0.5 rounded font-mono text-xs bg-slate-100 dark:bg-slate-950 text-indigo-600 dark:text-indigo-300 border border-slate-200 dark:border-slate-800 hover:border-sky-500/50 cursor-pointer"
-                                >
-                                  /{alias}
-                                  {copiedSlug === alias && (
-                                    <span className="ml-1 text-emerald-500">✓</span>
-                                  )}
-                                </button>
-                              ))}
-                              {repoName && (
-                                <span className="px-2 py-0.5 rounded font-mono text-xs text-slate-400 dark:text-slate-500">
-                                  /{repoName.toUpperCase()} (any case)
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-3.5 px-5 text-right">
-                            {project.pagesUrl ? (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-                                Pages Site
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                                Repo Fallback
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            {renderRedirectsTable("Case-Insensitive and Short Alias Redirects")}
           </div>
         </section>
 
@@ -863,6 +908,46 @@ export function App() {
           </div>
         </div>
       </footer>
+      </div>
+
+      {/* Hidden Bottom Flyout Panel toggled with the ` (Backquote) key */}
+      <aside
+        aria-label="Quick Redirects & Developer Flyout"
+        hidden={!isFlyoutOpen}
+        className={`absolute inset-x-0 bottom-0 h-[42dvh] z-50 flex-col border-t-2 border-sky-500/40 bg-white/95 dark:bg-[#0b1120]/95 backdrop-blur-xl shadow-2xl ${
+          isFlyoutOpen ? "flex" : "hidden"
+        }`}
+      >
+        <div className="px-4 sm:px-6 lg:px-8 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 shrink-0">
+          <div className="flex items-center gap-3">
+            <kbd className="px-2 py-0.5 rounded text-xs font-mono font-bold bg-slate-900 text-sky-400 border border-slate-700 shadow-inner">
+              `
+            </kbd>
+            <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+              Redirects &amp; Aliases Flyout
+            </h2>
+            <span className="hidden sm:inline-block text-xs text-slate-500 dark:text-slate-400">
+              Press <code className="font-mono text-xs">`</code> or{" "}
+              <code className="font-mono text-xs">Esc</code> to toggle
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsFlyoutOpen(false)}
+            aria-label="Close flyout panel"
+            className="px-3 py-1 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-6">
+          <div className="max-w-7xl mx-auto">
+            {renderRedirectsTable("Flyout Redirects and Aliases Directory")}
+          </div>
+        </div>
+      </aside>
     </div>
   );
 }
