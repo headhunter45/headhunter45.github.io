@@ -424,8 +424,12 @@ function githubPagesRedirectPlugin(): Plugin {
             candidateSlugs.add(alias.trim().toLowerCase());
           }
         }
-        // Add lowercase label slug (for non-Pages repos, this also creates /nodeeditor, /jtest, etc.)
-        if (p.label) {
+        // Add lowercase repo name or slug-safe label
+        const repoMatch = p.repoUrl?.match(/github\.com\/[^/]+\/([^/?#]+)/i);
+        const repoName = repoMatch ? repoMatch[1].replace(/\.git$/i, "") : null;
+        if (repoName) {
+          candidateSlugs.add(repoName.toLowerCase());
+        } else if (p.label && /^[a-z0-9._-]+$/i.test(p.label)) {
           candidateSlugs.add(p.label.toLowerCase());
         }
 
@@ -433,7 +437,7 @@ function githubPagesRedirectPlugin(): Plugin {
           const lower = slug.toLowerCase();
           if (
             !slug ||
-            slug.includes("/") ||
+            !/^[a-z0-9._-]+$/i.test(slug) ||
             slug === "." ||
             slug === ".." ||
             lower === "assets" ||

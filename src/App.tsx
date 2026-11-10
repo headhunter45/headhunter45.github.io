@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import resolvedConfigJson from "./generated/resolvedProjects.json";
-import type { ProjectConfig, SiteConfig } from "./types";
+import { useEffect, useMemo, useState } from 'react';
+import resolvedConfigJson from './generated/resolvedProjects.json';
+import type { ProjectConfig, SiteConfig } from './types';
 import {
   extractRepoName,
   filterProjectsByQuery,
@@ -9,29 +9,32 @@ import {
   getProjectKind,
   getProjectTags,
   isAppProject,
+  isComponentProject,
   isExtensionProject,
   resolveRedirectFromLocation,
   sortProjectsByPopularity,
-} from "./utils/projects";
+} from './utils/projects';
 
 const initialConfig = resolvedConfigJson as SiteConfig;
 
 const LANGUAGE_BADGE_COLORS: Record<string, string> = {
-  Rust: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
-  Python: "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30",
-  TypeScript: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30",
-  "C++": "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
-  Java: "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30",
-  "C#": "bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-500/30",
+  Rust: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30',
+  Python: 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30',
+  TypeScript:
+    'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30',
+  'C++':
+    'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
+  Java: 'bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30',
+  'C#': 'bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-500/30',
 };
 
 function getLanguageBadgeClass(language?: string): string {
   if (!language) {
-    return "bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30";
+    return 'bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30';
   }
   return (
     LANGUAGE_BADGE_COLORS[language] ||
-    "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30"
+    'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30'
   );
 }
 
@@ -39,9 +42,9 @@ export function App() {
   const { profile } = initialConfig;
   const projects = useMemo(
     () => sortProjectsByPopularity(initialConfig.projects || []),
-    []
+    [],
   );
-  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
   const [isFlyoutOpen, setIsFlyoutOpen] = useState<boolean>(false);
   const [redirectingTo, setRedirectingTo] = useState<{
@@ -57,21 +60,21 @@ export function App() {
       const target = e.target as HTMLElement | null;
       const isEditable =
         target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.tagName === "SELECT" ||
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
           target.isContentEditable);
 
-      if (!isEditable && (e.key === "`" || e.code === "Backquote")) {
+      if (!isEditable && (e.key === '`' || e.code === 'Backquote')) {
         e.preventDefault();
         setIsFlyoutOpen((prev) => !prev);
-      } else if (e.key === "Escape" && isFlyoutOpen && !isEditable) {
+      } else if (e.key === 'Escape' && isFlyoutOpen && !isEditable) {
         setIsFlyoutOpen(false);
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isFlyoutOpen]);
 
   // Check if current URL path or ?redirect= query matches a project redirect
@@ -88,17 +91,22 @@ export function App() {
 
   const appProjects = useMemo(
     () => projects.filter((p) => isAppProject(p)),
-    [projects]
+    [projects],
   );
 
   const extensionProjects = useMemo(
     () => projects.filter((p) => isExtensionProject(p)),
-    [projects]
+    [projects],
+  );
+
+  const componentProjects = useMemo(
+    () => projects.filter((p) => isComponentProject(p)),
+    [projects],
   );
 
   const filteredAllProjects = useMemo(
     () => filterProjectsByQuery(projects, searchQuery),
-    [projects, searchQuery]
+    [projects, searchQuery],
   );
 
   const availableTags = useMemo(() => {
@@ -119,17 +127,17 @@ export function App() {
     setSearchQuery((prev) => {
       const trimmed = prev.trim();
       if (trimmed.toLowerCase() === token.toLowerCase()) {
-        return "";
+        return '';
       }
       return token;
     });
     if (scrollToAll) {
-      document.getElementById("all")?.scrollIntoView({ behavior: "smooth" });
+      document.getElementById('all')?.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
   const handleCopyShortUrl = (slug: string) => {
-    const base = profile.siteUrl.replace(/\/$/, "");
+    const base = profile.siteUrl.replace(/\/$/, '');
     const url = `${base}/${slug}`;
     navigator.clipboard?.writeText(url);
     setCopiedSlug(slug);
@@ -138,10 +146,13 @@ export function App() {
     }, 1800);
   };
 
-  const renderProjectCard = (project: ProjectConfig, scrollToAllOnTagClick = true) => {
+  const renderProjectCard = (
+    project: ProjectConfig,
+    scrollToAllOnTagClick = true,
+  ) => {
     const kind = getProjectKind(project);
-    const primaryHref = project.pagesUrl || project.repoUrl || "#";
-    const isExternalOnly = kind === "external";
+    const primaryHref = project.pagesUrl || project.repoUrl || '#';
+    const isExternalOnly = kind === 'external';
     const hasPages = Boolean(project.pagesUrl);
     const tags = getProjectTags(project);
 
@@ -156,7 +167,7 @@ export function App() {
               {hasPages ? (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wide bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  {isExternalOnly ? "Web Site" : "Published Page"}
+                  {isExternalOnly ? 'Web Site' : 'Published Page'}
                 </span>
               ) : (
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
@@ -167,7 +178,7 @@ export function App() {
               {project.language && (
                 <span
                   className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${getLanguageBadgeClass(
-                    project.language
+                    project.language,
                   )}`}
                 >
                   {project.language}
@@ -175,7 +186,7 @@ export function App() {
               )}
             </div>
 
-            {typeof project.stars === "number" && project.stars > 0 && (
+            {typeof project.stars === 'number' && project.stars > 0 && (
               <span
                 className="inline-flex items-center gap-1 text-xs font-mono text-amber-600 dark:text-amber-400"
                 aria-label={`${project.stars} GitHub stars`}
@@ -189,8 +200,8 @@ export function App() {
           <h3 className="text-xl font-bold text-slate-900 dark:text-white group-hover:text-sky-600 dark:group-hover:text-sky-400 transition">
             <a
               href={primaryHref}
-              target={hasPages ? undefined : "_blank"}
-              rel={hasPages ? undefined : "noopener noreferrer"}
+              target={hasPages ? undefined : '_blank'}
+              rel={hasPages ? undefined : 'noopener noreferrer'}
             >
               {project.label}
             </a>
@@ -223,7 +234,7 @@ export function App() {
                 href={project.pagesUrl}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-sky-600 hover:bg-sky-500 text-white shadow-sm shadow-sky-600/20 transition"
               >
-                <span>Open App / Site</span>
+                <span>Open Site</span>
                 <span aria-hidden="true">→</span>
               </a>
 
@@ -280,7 +291,7 @@ export function App() {
           </thead>
           <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800/70">
             {projects.map((project) => {
-              const target = project.pagesUrl || project.repoUrl || "#";
+              const target = project.pagesUrl || project.repoUrl || '#';
               const aliases = getAllRouteAliases(project);
               const repoName = extractRepoName(project.repoUrl);
               return (
@@ -353,7 +364,7 @@ export function App() {
             Opening {redirectingTo.label}
           </h1>
           <p className="mt-2 text-sm text-slate-400">
-            Redirecting you to{" "}
+            Redirecting you to{' '}
             <a
               href={redirectingTo.targetUrl}
               className="text-sky-400 underline break-all"
@@ -371,7 +382,7 @@ export function App() {
       {/* Main Scrollable Viewport Area (nudged up when bottom flyout is open) */}
       <div
         className={`absolute inset-x-0 top-0 overflow-y-auto overscroll-contain scroll-smooth flex flex-col transition-[bottom] duration-200 ${
-          isFlyoutOpen ? "bottom-[42dvh]" : "bottom-0"
+          isFlyoutOpen ? 'bottom-[42dvh]' : 'bottom-0'
         }`}
       >
         {/* Sticky Top Header */}
@@ -398,19 +409,25 @@ export function App() {
                 href="#apps"
                 className="hover:text-sky-600 dark:hover:text-sky-400 transition"
               >
-                Apps ({appProjects.length})
+                Apps
               </a>
               <a
                 href="#extensions"
                 className="hover:text-sky-600 dark:hover:text-sky-400 transition"
               >
-                Extensions ({extensionProjects.length})
+                Extensions / Plugins
+              </a>
+              <a
+                href="#components"
+                className="hover:text-sky-600 dark:hover:text-sky-400 transition"
+              >
+                Components
               </a>
               <a
                 href="#all"
                 className="hover:text-sky-600 dark:hover:text-sky-400 transition"
               >
-                All ({projects.length})
+                Everything
               </a>
             </nav>
 
@@ -422,7 +439,7 @@ export function App() {
                   rel="noopener noreferrer"
                   className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium border border-slate-300 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-900 transition"
                 >
-                  sfcoder.me
+                  TomHicks.bio
                 </a>
               )}
               <a
@@ -446,7 +463,7 @@ export function App() {
 
         <main id="top" className="flex-1">
           {/* Hero / Profile Section */}
-          <section className="relative overflow-hidden py-14 sm:py-20 border-b border-slate-200 dark:border-slate-800/80 bg-gradient-to-b from-sky-50/70 via-white to-slate-50 dark:from-indigo-950/30 dark:via-[#090d16] dark:to-[#090d16]">
+          <section className="relative overflow-hidden py-4 sm:py-8 border-b border-slate-200 dark:border-slate-800/80 bg-gradient-to-b from-sky-50/70 via-white to-slate-50 dark:from-indigo-950/30 dark:via-[#090d16] dark:to-[#090d16]">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
                 {/* Left Column: Profile Intro */}
@@ -471,10 +488,10 @@ export function App() {
                   </div>
 
                   <h1 className="hero-headline font-extrabold text-slate-900 dark:text-white">
-                    Open-Source{" "}
+                    Open-Source{' '}
                     <span className="brand-gradient-text">
                       Apps, Extensions
-                    </span>{" "}
+                    </span>{' '}
                     &amp; Developer Tools
                   </h1>
 
@@ -485,21 +502,27 @@ export function App() {
                   <div className="mt-7 flex flex-wrap items-center gap-3">
                     <a
                       href="#apps"
-                      className="px-5 py-2.5 rounded-xl font-semibold text-sm bg-sky-600 hover:bg-sky-500 text-white shadow-md shadow-sky-600/20 transition"
+                      className="px-5 py-2.5 rounded-xl font-semibold text-sm bg-white dark:bg-slate-900 hover:bg-sky-500 text-white shadow-md shadow-sky-600/20 border border-slate-300 dark:border-slate-700 transition"
                     >
-                      Explore Apps
+                      Apps
                     </a>
                     <a
                       href="#extensions"
-                      className="px-5 py-2.5 rounded-xl font-semibold text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                      className="px-5 py-2.5 rounded-xl font-semibold text-sm bg-white dark:bg-slate-900 hover:bg-sky-500 text-white shadow-md shadow-sky-600/20 border border-slate-300 dark:border-slate-700 transition"
                     >
-                      Browse Extensions
+                      Extensions / Plugins
+                    </a>
+                    <a
+                      href="#components"
+                      className="px-5 py-2.5 rounded-xl font-semibold text-sm bg-white dark:bg-slate-900 hover:bg-sky-500 text-white shadow-md shadow-sky-600/20 border border-slate-300 dark:border-slate-700 transition"
+                    >
+                      Components
                     </a>
                     <a
                       href="#all"
-                      className="px-4 py-2.5 rounded-xl font-medium text-sm text-slate-600 dark:text-slate-300 hover:text-sky-600 dark:hover:text-sky-400 transition"
+                      className="px-5 py-2.5 rounded-xl font-semibold text-sm bg-white dark:bg-slate-900 hover:bg-sky-500 text-white shadow-md shadow-sky-600/20 border border-slate-300 dark:border-slate-700 transition"
                     >
-                      Search All Projects →
+                      Everything
                     </a>
                   </div>
                 </div>
@@ -524,7 +547,9 @@ export function App() {
                         </p>
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                           {profile.company && <span>{profile.company}</span>}
-                          {profile.location && <span>• {profile.location}</span>}
+                          {profile.location && (
+                            <span>• {profile.location}</span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -564,7 +589,7 @@ export function App() {
           {/* Apps Section */}
           <section
             id="apps"
-            className="py-14 sm:py-16 border-b border-slate-200 dark:border-slate-800/80"
+            className="py-4 sm:py-6 border-b border-slate-200 dark:border-slate-800/80"
           >
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="mb-8">
@@ -576,7 +601,8 @@ export function App() {
                   Apps
                 </h2>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  Interactive web applications, desktop utilities, CLI tools, and projects with published GitHub Pages sites.
+                  Interactive web applications, desktop utilities, CLI tools,
+                  and projects with published GitHub Pages sites.
                 </p>
               </div>
 
@@ -607,7 +633,34 @@ export function App() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {extensionProjects.map((project) =>
-                  renderProjectCard(project, true)
+                  renderProjectCard(project, true),
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* Components Section */}
+          <section
+            id="components"
+            className="py-14 sm:py-16 border-b border-slate-200 dark:border-slate-800/80"
+          >
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="mb-8">
+                <span className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-violet-600 dark:text-violet-400 font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-violet-400" />
+                  UI Modules &amp; Templates
+                </span>
+                <h2 className="mt-1 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                  Components
+                </h2>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  Reusable visual editors, UI components, and modular workspace templates.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {componentProjects.map((project) =>
+                  renderProjectCard(project, true),
                 )}
               </div>
             </div>
@@ -624,14 +677,14 @@ export function App() {
                   All Projects
                 </h2>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  Search case-insensitively by repository name or tags. Use{" "}
+                  Search case-insensitively by repository name or tags. Use{' '}
                   <code className="font-mono text-xs px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800">
                     tag:apps
-                  </code>{" "}
-                  or{" "}
+                  </code>{' '}
+                  or{' '}
                   <code className="font-mono text-xs px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800">
                     &quot;tag:unit testing&quot;
-                  </code>{" "}
+                  </code>{' '}
                   to force a tag filter.
                 </p>
               </div>
@@ -639,7 +692,10 @@ export function App() {
               {/* Search & Tag Filter Panel */}
               <div className="mb-8 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-4 sm:p-5 shadow-sm">
                 <div className="relative">
-                  <label htmlFor="all-projects-search" className="visually-hidden">
+                  <label
+                    htmlFor="all-projects-search"
+                    className="visually-hidden"
+                  >
                     Search projects by repository name or tags
                   </label>
                   <input
@@ -653,7 +709,7 @@ export function App() {
                   {searchQuery && (
                     <button
                       type="button"
-                      onClick={() => setSearchQuery("")}
+                      onClick={() => setSearchQuery('')}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer"
                     >
                       Clear
@@ -676,8 +732,8 @@ export function App() {
                         onClick={() => handleTagClick(tag, false)}
                         className={`px-2.5 py-1 rounded-lg text-xs font-mono transition cursor-pointer ${
                           isSelected
-                            ? "bg-sky-600 text-white shadow-sm"
-                            : "bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800"
+                            ? 'bg-sky-600 text-white shadow-sm'
+                            : 'bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
                         }`}
                       >
                         #{tag}
@@ -689,7 +745,7 @@ export function App() {
 
               {filteredAllProjects.length === 0 ? (
                 <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-8 text-center text-sm text-slate-500">
-                  No projects match{" "}
+                  No projects match{' '}
                   <code className="font-mono text-xs px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800">
                     {searchQuery}
                   </code>
@@ -698,7 +754,7 @@ export function App() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredAllProjects.map((project) =>
-                    renderProjectCard(project, false)
+                    renderProjectCard(project, false),
                   )}
                 </div>
               )}
@@ -717,7 +773,7 @@ export function App() {
                 H45
               </span>
               <span>
-                {profile.name} (@{profile.username}) — Published at{" "}
+                {profile.name} (@{profile.username}) — Published at{' '}
                 <a
                   href={profile.siteUrl}
                   className="text-sky-600 dark:text-sky-400 hover:underline"
@@ -764,7 +820,7 @@ export function App() {
         aria-label="Quick Redirects & Developer Flyout"
         hidden={!isFlyoutOpen}
         className={`absolute inset-x-0 bottom-0 h-[42dvh] z-50 flex-col border-t-2 border-sky-500/40 bg-white/95 dark:bg-[#0b1120]/95 backdrop-blur-xl shadow-2xl ${
-          isFlyoutOpen ? "flex" : "hidden"
+          isFlyoutOpen ? 'flex' : 'hidden'
         }`}
       >
         <div className="px-4 sm:px-6 lg:px-8 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 shrink-0">
@@ -776,7 +832,7 @@ export function App() {
               Redirects &amp; Aliases Flyout
             </h2>
             <span className="hidden sm:inline-block text-xs text-slate-500 dark:text-slate-400">
-              Press <code className="font-mono text-xs">`</code> or{" "}
+              Press <code className="font-mono text-xs">`</code> or{' '}
               <code className="font-mono text-xs">Esc</code> to toggle
             </span>
           </div>
@@ -793,7 +849,7 @@ export function App() {
 
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-6">
           <div className="max-w-7xl mx-auto">
-            {renderRedirectsTable("Flyout Redirects and Aliases Directory")}
+            {renderRedirectsTable('Flyout Redirects and Aliases Directory')}
           </div>
         </div>
       </aside>

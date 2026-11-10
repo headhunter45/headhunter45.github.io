@@ -4,73 +4,118 @@
     "username": "headhunter45",
     "githubUrl": "https://github.com/headhunter45",
     "siteUrl": "https://headhunter45.github.io",
-    "blogUrl": "https://sfcoder.me",
-    "company": "@google",
+    "blogUrl": "https://TomHicks.bio",
+    "company": "ex-Google, ex-Meta",
     "location": "SF Bay Area",
     "avatarUrl": "https://avatars.githubusercontent.com/u/672652?v=4",
     "tagline": "Software Engineer building developer tools, cross-platform CLI & desktop utilities, visual web editors, and game plugins.",
-    "bio": "I build fast, practical tools across Rust, C++, TypeScript, Python, and Java—ranging from repository-native task trackers and Nextcloud automation utilities to visual node editors, virtual tabletops, and Minecraft Paper server plugins."
+    "bio": "I build fast, practical tools across C++, TypeScript, Python, and Java—ranging from repository-native task trackers and Nextcloud automation utilities to visual node editors, virtual tabletops, and Minecraft Paper server plugins."
   },
   "projects": [
     {
-      "label": "opentasks",
-      "pagesUrl": "https://headhunter45.github.io/opentasks/",
-      "repoUrl": "https://github.com/headhunter45/opentasks",
-      "aliases": ["ot", "open-tasks", "tasks"],
-      "description": "Repository-native, database-free task and planning management tool (ot) storing tasks, epics, and dependency graphs as Markdown with YAML frontmatter in Git.",
-      "language": "Python",
-      "tags": ["app", "cli", "python", "git-native", "markdown", "task management"]
-    },
-    {
-      "label": "NextcloudUploadTool",
-      "pagesUrl": "https://headhunter45.github.io/NextcloudUploadTool/",
-      "repoUrl": "https://github.com/headhunter45/NextcloudUploadTool",
-      "aliases": ["nut", "nextcloud-upload-tool", "nextcloud", "upload"],
-      "description": "Fast, pipe-friendly Rust CLI (nut) and native Tauri v2 desktop GUI for streaming WebDAV uploads to Nextcloud and generating instant OCS public share & direct-download links.",
-      "language": "Rust",
-      "tags": ["app", "cli", "desktop", "rust", "tauri v2", "react", "nextcloud", "webdav"]
-    },
-    {
-      "label": "ThemeTool",
-      "pagesUrl": "https://headhunter45.github.io/ThemeTool/",
-      "repoUrl": "https://github.com/headhunter45/ThemeTool",
-      "aliases": ["theme-tool", "themes", "palette"],
-      "description": "Interactive web tool for generating component color palettes, previewing light/dark UI themes, and converting tokens across Tailwind and design systems.",
+      "label": "Old Bear Battles",
+      "repoUrl": "https://github.com/headhunter45/OldBearBattles",
+      "aliases": ["obb", "old-bear-battles", "oldbear", "vtt", "oldbearvtt"],
+      "description": "Lightweight, zero-install, mobile-friendly virtual tabletop (VTT) and tactical battlemap system with HTML5 Canvas, WebRTC voice chat, and D&D Beyond character sync.",
       "language": "TypeScript",
-      "tags": ["app", "web", "typescript", "tailwind", "design tokens", "color palettes"]
+      "tags": [
+        "app",
+        "web",
+        "vtt",
+        "typescript",
+        "webrtc",
+        "html5 canvas",
+        "tabletop rpg"
+      ]
     },
     {
-      "label": "MonsterCards",
+      "label": "Monster Cards",
       "pagesUrl": "https://headhunter45.github.io/MonsterCards/",
       "repoUrl": "https://github.com/headhunter45/MonsterCards",
-      "aliases": ["monster-cards", "monsters", "cards"],
+      "aliases": ["cards", "mc", "monster-cards", "monsters"],
       "description": "Create, import, and organize 5e-compatible monster statblocks across devices with Tetra-Cube statblock import and cloud synchronization.",
       "language": "Java",
       "tags": ["app", "5e rpg", "statblocks", "cross-platform", "java"]
     },
     {
-      "label": "OldBearBattles",
-      "repoUrl": "https://github.com/headhunter45/OldBearBattles",
-      "aliases": ["obb", "old-bear-battles", "oldbear", "vtt", "oldbearvtt"],
-      "description": "Lightweight, zero-install, mobile-friendly virtual tabletop (VTT) and tactical battlemap system with HTML5 Canvas, WebRTC voice chat, and D&D Beyond character sync.",
-      "language": "TypeScript",
-      "tags": ["app", "web", "vtt", "typescript", "webrtc", "html5 canvas", "tabletop rpg"]
+      "label": "Open Tasks (ot)",
+      "pagesUrl": "https://headhunter45.github.io/opentasks/",
+      "repoUrl": "https://github.com/headhunter45/opentasks",
+      "aliases": ["oat", "ot", "open-tasks", "tasks"],
+      "description": "Repository-native, database-free task and planning management tool (ot) storing tasks, epics, and dependency graphs as Markdown with YAML frontmatter in Git.",
+      "language": "Python",
+      "tags": [
+        "app",
+        "cli",
+        "python",
+        "git-native",
+        "markdown",
+        "task management"
+      ]
     },
     {
-      "label": "NodeEditor",
+      "label": "Nextcloud Upload Tool (nut)",
+      "pagesUrl": "https://headhunter45.github.io/NextcloudUploadTool/",
+      "repoUrl": "https://github.com/headhunter45/NextcloudUploadTool",
+      "aliases": ["nut", "nextcloud-upload-tool", "nextcloud", "upload"],
+      "description": "Fast, pipe-friendly Rust CLI (nut) and native Tauri v2 desktop GUI for streaming WebDAV uploads to Nextcloud and generating instant OCS public share & direct-download links.",
+      "language": "Rust",
+      "tags": [
+        "app",
+        "cli",
+        "desktop",
+        "rust",
+        "tauri v2",
+        "react",
+        "nextcloud",
+        "webdav"
+      ]
+    },
+    {
+      "label": "Theme Tool",
+      "pagesUrl": "https://headhunter45.github.io/ThemeTool/",
+      "repoUrl": "https://github.com/headhunter45/ThemeTool",
+      "aliases": ["theme-tool", "themes", "palette"],
+      "description": "Interactive web tool for generating component color palettes, previewing light/dark UI themes, and converting tokens across Tailwind and design systems.",
+      "language": "TypeScript",
+      "tags": [
+        "app",
+        "web",
+        "typescript",
+        "tailwind",
+        "design tokens",
+        "color palettes"
+      ]
+    },
+    {
+      "label": "Node Editor",
       "repoUrl": "https://github.com/headhunter45/NodeEditor",
       "aliases": ["node-editor", "nodes", "graph-editor", "planb-node-editor"],
       "description": "Configurable, schema-driven visual node graph editor for React inspired by Blender and Unreal Engine Blueprints with Bezier wires and live topological evaluation.",
       "language": "TypeScript",
-      "tags": ["app", "web", "typescript", "react", "visual scripting", "node graph"]
+      "tags": [
+        "component",
+        "web",
+        "typescript",
+        "react",
+        "visual scripting",
+        "node graph"
+      ]
     },
     {
-      "label": "EditorTemplate",
+      "label": "Editor Template",
       "repoUrl": "https://github.com/headhunter45/EditorTemplate",
       "aliases": ["editor-template", "editor"],
       "description": "Modular Next.js and TypeScript workspace template for building rich visual editors and interactive web applications.",
       "language": "TypeScript",
-      "tags": ["app", "template", "typescript", "next.js", "react", "editor ui"]
+      "tags": [
+        "component",
+        "template",
+        "typescript",
+        "next.js",
+        "react",
+        "editor ui"
+      ]
     },
     {
       "label": "Metropolis",
@@ -78,26 +123,50 @@
       "aliases": ["city", "bukkit-metropolis"],
       "description": "Minecraft city generation plugin that automatically expands protected player home plots, multi-level stacked plots, and road networks with WorldGuard integration.",
       "language": "Java",
-      "tags": ["plugin", "extension", "java", "minecraft", "worldguard", "procedural generation"]
+      "tags": [
+        "plugin",
+        "extension",
+        "java",
+        "minecraft",
+        "worldguard",
+        "procedural generation"
+      ]
     },
     {
-      "label": "ScoreKeeper",
+      "label": "Score Keeper",
+      "pagesUrl": "https://modrinth.com/plugin/scorekeeper",
       "repoUrl": "https://github.com/headhunter45/ScoreKeeper",
       "aliases": ["score-keeper", "scores", "score"],
       "description": "Minecraft Paper 26.2/26.3 plugin (Java 25) that tracks player scores in named buckets for server events, timed high-score runs, and companion plugins.",
       "language": "Java",
-      "tags": ["plugin", "extension", "java 25", "minecraft paper", "leaderboards", "plugin api"]
+      "tags": [
+        "plugin",
+        "extension",
+        "java 25",
+        "minecraft paper",
+        "leaderboards",
+        "plugin api",
+        "minecraft"
+      ]
     },
     {
-      "label": "MobScores",
+      "label": "Mob Scores",
+      "pagesUrl": "https://modrinth.com/plugin/mob-scores",
       "repoUrl": "https://github.com/headhunter45/MobScores",
       "aliases": ["mob-scores", "mobs", "mobscore"],
       "description": "Companion plugin for ScoreKeeper on Minecraft Paper 26.2/26.3 that awards configurable points for entity kills during server events and runs.",
       "language": "Java",
-      "tags": ["plugin", "extension", "java 25", "minecraft paper", "scorekeeper", "game events"]
+      "tags": [
+        "plugin",
+        "extension",
+        "java 25",
+        "minecraft paper",
+        "scorekeeper",
+        "game events"
+      ]
     },
     {
-      "label": "JTest",
+      "label": "J-Test",
       "repoUrl": "https://github.com/headhunter45/JTest",
       "aliases": ["j-test", "jasmine-cpp"],
       "description": "A Jasmine-inspired C++ unit testing library featuring expressive describe/it/expect BDD syntax, matchers, and zero-boilerplate test suites.",
@@ -105,7 +174,7 @@
       "tags": ["library", "c++", "unit testing", "bdd", "jasmine"]
     },
     {
-      "label": "TinyTest",
+      "label": "Tiny Test",
       "repoUrl": "https://github.com/headhunter45/TinyTest",
       "aliases": ["tiny-test", "tinytest-cpp"],
       "description": "Minimal, lightweight C++ unit testing framework with setup/teardown hooks, custom comparators, conditional skipping, and CMake FetchContent integration.",

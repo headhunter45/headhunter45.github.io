@@ -35,12 +35,13 @@ export function getAllRouteAliases(project: ProjectConfig): string[] {
   for (const a of project.aliases || []) {
     if (a.trim()) set.add(a.trim());
   }
-  const kebab = toKebabCase(repoName || project.label);
-  if (kebab && kebab !== project.label.toLowerCase()) {
+  const baseSlugSource = repoName || project.label;
+  const kebab = toKebabCase(baseSlugSource);
+  if (kebab && /^[a-z0-9._-]+$/i.test(kebab) && kebab !== baseSlugSource.toLowerCase()) {
     set.add(kebab);
   }
-  if (project.label.toLowerCase() !== project.label) {
-    set.add(project.label.toLowerCase());
+  if (repoName && repoName.toLowerCase() !== repoName) {
+    set.add(repoName.toLowerCase());
   }
   return Array.from(set);
 }
@@ -100,13 +101,14 @@ export function formatTagQueryToken(tag: string): string {
 }
 
 /**
- * Projects tagged with "app" (or "apps") OR projects that have published repo pages
+ * Projects tagged with "app" (or "apps") OR projects that have published GitHub Pages
  * belong in the Apps section.
  */
 export function isAppProject(project: ProjectConfig): boolean {
-  if (Boolean(project.pagesUrl)) return true;
   const tags = getProjectTags(project).map((t) => t.toLowerCase());
-  return tags.includes("app") || tags.includes("apps");
+  if (tags.includes("app") || tags.includes("apps")) return true;
+  if (project.pagesUrl && project.pagesUrl.includes("github.io")) return true;
+  return false;
 }
 
 /**
@@ -120,6 +122,14 @@ export function isExtensionProject(project: ProjectConfig): boolean {
     tags.includes("plugin") ||
     tags.includes("plugins")
   );
+}
+
+/**
+ * Projects tagged with "component" (or "components") belong in the Components section.
+ */
+export function isComponentProject(project: ProjectConfig): boolean {
+  const tags = getProjectTags(project).map((t) => t.toLowerCase());
+  return tags.includes("component") || tags.includes("components");
 }
 
 /**
